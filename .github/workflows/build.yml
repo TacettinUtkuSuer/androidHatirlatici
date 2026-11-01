@@ -1,0 +1,58 @@
+name: Android APK
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: apk-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: APK derle
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleDebug --stacktrace
+
+      - name: APK'yı yeniden adlandır
+        run: cp app/build/outputs/apk/debug/app-debug.apk Hatirlatici-${{ github.run_number }}.apk
+
+      - name: Artifact olarak yükle
+        uses: actions/upload-artifact@v4
+        with:
+          name: Hatirlatici-apk-${{ github.run_number }}
+          path: Hatirlatici-${{ github.run_number }}.apk
+
+      # main'e her birleştirmede "latest" sürümü güncellenir:
+      # telefondan Releases → latest → .apk ile doğrudan indirilebilir.
+      - name: "'latest' sürümünü yayınla"
+        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release delete latest --cleanup-tag --yes || true
+          gh release create latest Hatirlatici-${{ github.run_number }}.apk \
+            --target "$GITHUB_SHA" \
+            --title "Son sürüm (derleme #${{ github.run_number }})" \
+            --notes "Otomatik derleme: ${GITHUB_SHA::7}" \
+            --prerelease
+
+      - name: Unit testler
+        run: ./gradlew testDebugUnitTest

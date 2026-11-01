@@ -17,6 +17,17 @@ android {
         versionName = "0.1.0"
     }
 
+    // Sabit debug imzası: GitHub Actions her derlemede aynı anahtarı kullanır,
+    // böylece yeni APK eskisinin üzerine (veriler silinmeden) kurulabilir.
+    signingConfigs {
+        getByName("debug") {
+            storeFile = file("ci-debug.keystore")
+            storePassword = "android"
+            keyAlias = "androiddebugkey"
+            keyPassword = "android"
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = true
