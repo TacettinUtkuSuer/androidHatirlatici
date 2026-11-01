@@ -82,7 +82,7 @@ Kararlar:
 
 | Faz | İçerik |
 |---|---|
-| **1 (bu PR)** | Gradle, Room şeması, Keystore, DataStore, bildirim motoru, onay diyaloğu, CycleCalculator testleri |
-| 2 | Dashboard, Takvim, Ekleme/Düzenleme formu, navigasyon (WindowSizeClass ile telefon/tablet/katlanabilir) |
+| 1 ✅ | Gradle, Room şeması, Keystore, DataStore, bildirim motoru, onay diyaloğu, CycleCalculator testleri |
+| **2 ✅** | Dashboard, Takvim, Ekleme/Düzenleme formu, navigasyon (WindowSizeClass ile telefon/tablet/katlanabilir) |
 | 3 | Ayarlar ekranı, Glance widget'ı, biyometrik PIN görüntüleme, izin/pil yönlendirmeleri |
 | 4 | JSON yedek: yerel (SAF) import/export + Google Sign-In (Credential Manager + AuthorizationClient, `drive.appdata` kapsamı) ile Drive yedekle/geri yükle |
