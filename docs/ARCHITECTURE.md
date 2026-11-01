@@ -74,6 +74,15 @@ Kararlar:
 - **Pasif kayıt**: Engine ilk adımda `isActive=false` ise tüm bildirim ve alarmları iptal eder.
 - **Samsung notu**: Ayarlar ekranına "Pil → Kısıtlanmamış" yönlendirmesi eklenecek (One UI uygulamayı "uyku"ya alabiliyor).
 
+## 3b. Pil tüketimi
+
+- Arka planda sürekli çalışan servis yok; konum, sensör, ağ dinleme yok.
+- Tüm kayıtlar için **tek** bir tam zamanlı alarm: cihaz yalnızca bir sonraki hatırlatma saatinde kısa süreliğine uyanır,
+  aynı saatteki hatırlatmalar tek uyanmada gönderilir.
+- Gün dönümü alarmı esnektir (`AlarmManager.set`, RTC — cihazı ayrıca uyandırmaz).
+- Güvenlik ağı senkronu 12 saatte bir (WorkManager); haftalık Drive yedeği yalnızca internet varken ve pil düşük değilken.
+- Widget periyodik güncellenmez (`updatePeriodMillis=0`); yalnızca veri değişince yenilenir.
+
 ## 4. Güvenlik
 
 - PIN: `PinCipher` → Android Keystore'da üretilen, dışa aktarılamayan AES-256/GCM anahtarı. DB'de yalnızca `v1:Base64(iv‖ciphertext)`.
@@ -87,4 +96,4 @@ Kararlar:
 | 1 ✅ | Gradle, Room şeması, Keystore, DataStore, bildirim motoru, onay diyaloğu, CycleCalculator testleri |
 | **2 ✅** | Dashboard, Takvim, Ekleme/Düzenleme formu, navigasyon (WindowSizeClass ile telefon/tablet/katlanabilir) |
 | **3 ✅** | Ayarlar ekranı, Glance widget'ı, biyometrik doğrulamayla kart bilgileri, izin/pil yönlendirmeleri, gelir kayıtları, hafta sonu kuralı, banka rozetleri, işlem geçmişi (log), yeni ikon |
-| 4 | JSON yedek: yerel (SAF) import/export + Google Sign-In (Credential Manager + AuthorizationClient, `drive.appdata` kapsamı) ile Drive yedekle/geri yükle |
+| **4 ✅** | JSON yedek: yerel (SAF) import/export + Google Sign-In (Credential Manager + AuthorizationClient, `drive.appdata` kapsamı) ile Drive yedekle/geri yükle |

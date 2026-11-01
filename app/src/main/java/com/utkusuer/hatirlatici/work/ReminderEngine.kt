@@ -28,7 +28,7 @@ import java.time.ZonedDateTime
  *
  *  1. Dönemleri (önceki/bu/sonraki ay) üretir.
  *  2. Bildirim zamanı gelmiş & ödenmemiş dönem varsa kalıcı bildirimi gösterir, yoksa kaldırır.
- *  3. Bir sonraki gün içi hatırlatma saatine alarm kurar.
+ *  3. TÜM kayıtlar için en yakın hatırlatma saatine TEK alarm kurar (pil dostu).
  */
 class ReminderEngine(
     private val paymentDao: PaymentDao,
@@ -44,38 +44,30 @@ class ReminderEngine(
     private val mutex = Mutex()
 
     suspend fun refreshAll() {
-        mutex.withLock {
-            val settings = settingsRepository.current()
-            paymentDao.getAllWithReminders().forEach { refreshLocked(it, settings) }
-            scheduler.scheduleDayTick(nextDayTick())
-        }
+        mutex.withLock { refreshAllLocked() }
         onChanged()
     }
 
-    suspend fun refreshPayment(paymentId: Long) = mutex.withLock {
-        val pw = paymentDao.getWithReminders(paymentId)
-        if (pw == null) {
-            notifier.cancelAll(paymentId)
-            scheduler.cancel(paymentId)
-        } else {
-            refreshLocked(pw, settingsRepository.current())
-        }
-    }
+    /** Kalıcı bildirim kaydırılınca vb. — tümünü yeniden hesaplamak birkaç kayıt için ucuzdur. */
+    suspend fun refreshPayment(@Suppress("UNUSED_PARAMETER") paymentId: Long) = refreshAll()
 
-    /** Gün içi hatırlatma alarmı çaldığında. */
-    suspend fun onReminderAlarm(paymentId: Long) = mutex.withLock {
-        val pw = paymentDao.getWithReminders(paymentId) ?: run {
-            scheduler.cancel(paymentId); return@withLock
-        }
-        val settings = settingsRepository.current()
-        val today = LocalDate.now(zone())
-        if (pw.payment.isActive && settings.remindersEnabled) {
-            ensureCycles(pw.payment, today)
-            cycleDao.getDueForPayment(paymentId, today.toEpochDay()).firstOrNull()?.let {
-                notifier.showReminder(pw.payment, it, today)
+    /** Ortak hatırlatma alarmı çaldığında: bu saate kurulu ve zamanı gelmiş tüm kayıtlar için uyarı. */
+    suspend fun onReminderAlarm(minuteOfDay: Int?) {
+        mutex.withLock {
+            val settings = settingsRepository.current()
+            if (settings.remindersEnabled && minuteOfDay != null) {
+                val today = LocalDate.now(zone())
+                for (pw in paymentDao.getAllWithReminders()) {
+                    val p = pw.payment
+                    if (!p.isActive || minuteOfDay !in timesOf(pw, settings)) continue
+                    ensureCycles(p, today)
+                    cycleDao.getDueForPayment(p.id, today.toEpochDay()).firstOrNull()?.let {
+                        notifier.showReminder(p, it, today)
+                    }
+                }
             }
+            refreshAllLocked()
         }
-        refreshLocked(pw, settings)
     }
 
     /** Çift onaydan sonra çağrılır: dönemi kapatır, loglar, bildirimleri kaldırır. */
@@ -85,32 +77,46 @@ class ReminderEngine(
             if (cycle.status == CycleStatus.PAID) return@withLock
             cycleDao.markPaid(cycleId, System.currentTimeMillis(), amountMinor)
             notifier.cancelAll(cycle.paymentId)
-            val pw = paymentDao.getWithReminders(cycle.paymentId) ?: return@withLock
-            val p = pw.payment
-            val period = YearMonth.parse(cycle.periodKey)
-            logDao.insert(
-                ActivityLogEntity(
-                    type = if (p.kind == EntryKind.INCOME) LogType.RECEIVED else LogType.PAID,
-                    paymentId = p.id,
-                    title = p.title,
-                    detail = "${Formatters.monthYear(period)} dönemi · son gün ${Formatters.shortDate(LocalDate.ofEpochDay(cycle.windowEndEpochDay))}",
-                    amountMinor = amountMinor ?: p.amountMinor,
-                ),
-            )
-            refreshLocked(pw, settingsRepository.current())
+            paymentDao.getWithReminders(cycle.paymentId)?.payment?.let { p ->
+                val period = YearMonth.parse(cycle.periodKey)
+                logDao.insert(
+                    ActivityLogEntity(
+                        type = if (p.kind == EntryKind.INCOME) LogType.RECEIVED else LogType.PAID,
+                        paymentId = p.id,
+                        title = p.title,
+                        detail = "${Formatters.monthYear(period)} dönemi · son gün ${Formatters.shortDate(LocalDate.ofEpochDay(cycle.windowEndEpochDay))}",
+                        amountMinor = amountMinor ?: p.amountMinor,
+                    ),
+                )
+            }
+            refreshAllLocked()
         }
         onChanged()
     }
 
-    private suspend fun refreshLocked(pw: PaymentWithReminders, settings: AppSettings) {
+    private suspend fun refreshAllLocked() {
+        val settings = settingsRepository.current()
+        val now = ZonedDateTime.now(zone())
+        var next: Pair<ZonedDateTime, Int>? = null
+        for (pw in paymentDao.getAllWithReminders()) {
+            val candidate = refreshOne(pw, settings, now) ?: continue
+            if (next == null || candidate.first.isBefore(next.first)) next = candidate
+        }
+        if (next != null) {
+            scheduler.scheduleReminder(next.first.toInstant().toEpochMilli(), next.second)
+        } else {
+            scheduler.cancelReminder()
+        }
+        scheduler.scheduleDayTick(nextDayTick())
+    }
+
+    /** Kalıcı bildirimi günceller ve bu kaydın bir sonraki hatırlatma zamanını döndürür. */
+    private suspend fun refreshOne(pw: PaymentWithReminders, settings: AppSettings, now: ZonedDateTime): Pair<ZonedDateTime, Int>? {
         val payment = pw.payment
         if (!payment.isActive) {
             notifier.cancelAll(payment.id)
-            scheduler.cancel(payment.id)
-            return
+            return null
         }
-
-        val now = ZonedDateTime.now(zone())
         val today = now.toLocalDate()
         ensureCycles(payment, today)
 
@@ -124,19 +130,18 @@ class ReminderEngine(
             notifier.cancelOngoing(payment.id)
         }
 
-        val times = (if (payment.useDefaultReminderTimes) settings.defaultReminderMinutes else pw.reminderTimes.map { it.minuteOfDay })
+        val times = timesOf(pw, settings)
+        if (!settings.remindersEnabled || times.isEmpty() || pending.isEmpty()) return null
+        val firstDay = if (due.isNotEmpty()) today
+        else maxOf(today, LocalDate.ofEpochDay(pending.minOf { it.notifyFromEpochDay }))
+        return nextTrigger(firstDay, times, now)
+    }
+
+    private fun timesOf(pw: PaymentWithReminders, settings: AppSettings): List<Int> =
+        (if (pw.payment.useDefaultReminderTimes) settings.defaultReminderMinutes else pw.reminderTimes.map { it.minuteOfDay })
             .filter { it in 0 until MINUTES_PER_DAY }
             .distinct()
             .sorted()
-        if (!settings.remindersEnabled || times.isEmpty() || pending.isEmpty()) {
-            scheduler.cancel(payment.id)
-            return
-        }
-
-        val firstDay = if (due.isNotEmpty()) today
-        else maxOf(today, LocalDate.ofEpochDay(pending.minOf { it.notifyFromEpochDay }))
-        scheduler.schedule(payment.id, nextTrigger(firstDay, times, now).toInstant().toEpochMilli())
-    }
 
     private suspend fun ensureCycles(payment: PaymentEntity, today: LocalDate) {
         val month = YearMonth.from(today)
@@ -145,18 +150,18 @@ class ReminderEngine(
         }
     }
 
-    private fun nextTrigger(firstDay: LocalDate, sortedMinutes: List<Int>, now: ZonedDateTime): ZonedDateTime {
+    private fun nextTrigger(firstDay: LocalDate, sortedMinutes: List<Int>, now: ZonedDateTime): Pair<ZonedDateTime, Int> {
         var day = firstDay
         while (true) {
             for (m in sortedMinutes) {
                 val candidate = day.atTime(m / 60, m % 60).atZone(zone())
-                if (candidate.isAfter(now)) return candidate
+                if (candidate.isAfter(now)) return candidate to m
             }
             day = day.plusDays(1)
         }
     }
 
-    /** Gün dönümünde (00:01) yeni dönemlerin bildirimleri hemen görünsün. */
+    /** Gün dönümünde (00:01) yeni dönemlerin kalıcı bildirimleri görünsün. */
     private fun nextDayTick(): Long =
         LocalDate.now(zone()).plusDays(1).atTime(0, 1).atZone(zone()).toInstant().toEpochMilli()
 

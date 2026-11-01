@@ -32,6 +32,7 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.InputChip
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Switch
@@ -166,20 +167,29 @@ fun SettingsScreen(onOpenLog: () -> Unit) {
                     context.startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:${context.packageName}")))
                 }
                 Text(
-                    "Samsung cihazlarda: Uygulama bilgisi → Pil → \"Kısıtlanmamış\" seçin. Aksi halde One UI uygulamayı uyutup hatırlatmaları geciktirebilir.",
+                    "Samsung cihazlarda: Uygulama bilgisi → Pil → \"Kısıtlanmamış\" seçin. Bu, pil tüketimini artırmaz; " +
+                        "yalnızca One UI'ın uygulamayı uyutup hatırlatmaları geciktirmesini engeller. Uygulama arka planda " +
+                        "sürekli çalışmaz: günde yalnızca hatırlatma saatlerinizde kısa süreliğine uyanır.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
 
+                SectionHeader("Akıllı saat")
+                Text(
+                    "Huawei saat için: Huawei Health → Cihazlar → saatiniz → Bildirimler → \"Hatırlatıcı\"yı açın. " +
+                        "Kalıcı (sessiz) bildirimler saatlere genellikle iletilmez; saatli hatırlatmalar iletilir. " +
+                        "Telefon ekranı açıkken saat bildirim göstermeyebilir.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                OutlinedButton(onClick = { container.notifier.showTest() }, modifier = Modifier.fillMaxWidth()) {
+                    Text("Test bildirimi gönder")
+                }
+
                 SectionHeader("Kayıtlar")
                 NavRow("İşlem geçmişi (log)", "Ödeme tarihleri ve kayıt ekleme/düzenleme günleri", onOpenLog)
 
-                SectionHeader("Yedekleme")
-                Text(
-                    "Google Drive ve yerel yedekleme bir sonraki aşamada (Faz 4) eklenecek.",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
+                BackupSection()
 
                 SectionHeader("Hakkında")
                 Text("Hatırlatıcı ${BuildConfig.VERSION_NAME}", style = MaterialTheme.typography.bodyMedium)

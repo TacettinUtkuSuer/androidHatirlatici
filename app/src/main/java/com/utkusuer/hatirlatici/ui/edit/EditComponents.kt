@@ -37,7 +37,7 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import com.utkusuer.hatirlatici.data.security.CardSecrets
 import com.utkusuer.hatirlatici.ui.components.BankBadge
-import com.utkusuer.hatirlatici.ui.components.Banks
+import com.utkusuer.hatirlatici.domain.Banks
 
 @Composable
 fun BankPickerRow(bankCode: String?, title: String, onClick: () -> Unit) {

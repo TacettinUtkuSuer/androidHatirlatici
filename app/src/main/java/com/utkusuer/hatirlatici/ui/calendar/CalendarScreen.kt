@@ -48,9 +48,10 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.utkusuer.hatirlatici.domain.CycleCalculator
 import com.utkusuer.hatirlatici.domain.Formatters
 import com.utkusuer.hatirlatici.ui.components.BankBadge
-import com.utkusuer.hatirlatici.ui.components.Banks
+import com.utkusuer.hatirlatici.domain.Banks
 import com.utkusuer.hatirlatici.ui.components.ConfirmPaidDialog
 import com.utkusuer.hatirlatici.ui.components.isIncome
 import com.utkusuer.hatirlatici.ui.components.SectionHeader
@@ -299,6 +300,13 @@ private fun DayDetails(
                         },
                     )
                     Text(e.payment.amountText(), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    CycleCalculator.originalDueIfShifted(e.payment, e.cycle)?.let { original ->
+                        Text(
+                            Formatters.shiftNote(original),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
                 }
                 when {
                     !e.stored -> Unit // ileriki ay projeksiyonu: henüz işaretlenemez

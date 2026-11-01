@@ -39,9 +39,10 @@ import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.utkusuer.hatirlatici.data.local.entity.CycleWithPayment
+import com.utkusuer.hatirlatici.domain.CycleCalculator
 import com.utkusuer.hatirlatici.domain.Formatters
 import com.utkusuer.hatirlatici.ui.components.BankBadge
-import com.utkusuer.hatirlatici.ui.components.Banks
+import com.utkusuer.hatirlatici.domain.Banks
 import com.utkusuer.hatirlatici.ui.components.ConfirmPaidDialog
 import com.utkusuer.hatirlatici.ui.components.isIncome
 import com.utkusuer.hatirlatici.ui.components.ContentWidth
@@ -195,6 +196,13 @@ private fun PaymentRow(item: CycleWithPayment, today: LocalDate, onClick: () -> 
                 style = MaterialTheme.typography.bodySmall,
                 color = if (overdue && !income) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.secondary,
             )
+            CycleCalculator.originalDueIfShifted(item.payment, item.cycle)?.let { original ->
+                Text(
+                    Formatters.shiftNote(original),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
         }
         Spacer(Modifier.width(12.dp))
         Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(6.dp)) {

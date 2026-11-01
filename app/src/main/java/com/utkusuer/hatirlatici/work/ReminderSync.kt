@@ -11,7 +11,7 @@ import androidx.work.WorkerParameters
 import com.utkusuer.hatirlatici.HatirlaticiApp
 import java.util.concurrent.TimeUnit
 
-/** WorkManager tetikleyicileri: anlık senkron ve güvenlik ağı olarak periyodik senkron. */
+/** WorkManager tetikleyicileri: anlık senkron ve güvenlik ağı olarak 12 saatte bir (pil dostu) senkron. */
 class ReminderSync(context: Context) {
 
     private val workManager = WorkManager.getInstance(context)
@@ -27,8 +27,8 @@ class ReminderSync(context: Context) {
     fun schedulePeriodic() {
         workManager.enqueueUniquePeriodicWork(
             WORK_PERIODIC,
-            ExistingPeriodicWorkPolicy.KEEP,
-            PeriodicWorkRequestBuilder<ReminderSyncWorker>(6, TimeUnit.HOURS).build(),
+            ExistingPeriodicWorkPolicy.UPDATE,
+            PeriodicWorkRequestBuilder<ReminderSyncWorker>(12, TimeUnit.HOURS).build(),
         )
     }
 

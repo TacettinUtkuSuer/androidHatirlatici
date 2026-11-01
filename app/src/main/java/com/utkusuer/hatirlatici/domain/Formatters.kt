@@ -16,7 +16,14 @@ object Formatters {
     private val monthYear = DateTimeFormatter.ofPattern("LLLL yyyy", TR)
     private val dateTime = DateTimeFormatter.ofPattern("d MMM yyyy, HH:mm", TR)
 
+    private val dayWithWeekday = DateTimeFormatter.ofPattern("d MMM EEEE", TR)
+
     fun shortDate(date: LocalDate): String = shortDate.format(date)
+
+    fun dayWithWeekday(date: LocalDate): String = dayWithWeekday.format(date)
+
+    /** Kaydırılmış tarih için kısa not: "Asıl tarih 8 Kas Pazar · hafta sonu nedeniyle kaydırıldı". */
+    fun shiftNote(original: LocalDate): String = "Asıl tarih ${dayWithWeekday(original)} · hafta sonu nedeniyle kaydırıldı"
 
     fun monthYear(month: YearMonth): String =
         monthYear.format(month).replaceFirstChar { it.titlecase(TR) }

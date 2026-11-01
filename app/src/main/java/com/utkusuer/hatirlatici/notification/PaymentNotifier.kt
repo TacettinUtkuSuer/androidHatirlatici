@@ -12,10 +12,12 @@ import com.utkusuer.hatirlatici.R
 import com.utkusuer.hatirlatici.data.local.entity.EntryKind
 import com.utkusuer.hatirlatici.data.local.entity.PaymentCycleEntity
 import com.utkusuer.hatirlatici.data.local.entity.PaymentEntity
+import com.utkusuer.hatirlatici.domain.CycleCalculator
 import com.utkusuer.hatirlatici.domain.Formatters
 import com.utkusuer.hatirlatici.ui.MainActivity
 import com.utkusuer.hatirlatici.ui.confirm.ConfirmPaidActivity
 import java.time.LocalDate
+import java.time.format.TextStyle
 
 /** Bildirimlerin oluşturulması ve kaldırılması. Tüm iş mantığı [com.utkusuer.hatirlatici.work.ReminderEngine]'dedir. */
 class PaymentNotifier(private val context: Context) {
@@ -26,6 +28,7 @@ class PaymentNotifier(private val context: Context) {
         if (!canPost()) return
         val notification = NotificationCompat.Builder(context, NotificationChannels.ONGOING)
             .setSmallIcon(R.drawable.ic_notification)
+            .setLargeIcon(BankIcon.bitmap(context, payment))
             .setContentTitle(titleOf(payment))
             .setContentText(bodyOf(payment, cycle, today))
             .setCategory(NotificationCompat.CATEGORY_REMINDER)
@@ -47,6 +50,7 @@ class PaymentNotifier(private val context: Context) {
         if (!canPost()) return
         val notification = NotificationCompat.Builder(context, NotificationChannels.REMINDER)
             .setSmallIcon(R.drawable.ic_notification)
+            .setLargeIcon(BankIcon.bitmap(context, payment))
             .setContentTitle(
                 context.getString(
                     if (payment.kind == EntryKind.INCOME) R.string.income_reminder_title else R.string.reminder_title,
@@ -92,7 +96,22 @@ class PaymentNotifier(private val context: Context) {
         }
         val amount = p.amountMinor?.let { (if (p.kind == EntryKind.INCOME) "+" else "") + Formatters.money(it, p.currency) }
             ?: context.getString(R.string.amount_variable)
-        return "$due · $amount"
+        val shift = CycleCalculator.originalDueIfShifted(p, c)?.let { " · asıl ${Formatters.shortDate(it)} ${it.dayOfWeek.getDisplayName(TextStyle.SHORT, Formatters.TR)}" }.orEmpty()
+        return "$due · $amount$shift"
+    }
+
+    /** Akıllı saat (Huawei Health vb.) yönlendirmesini denemek için tek seferlik uyarı. */
+    fun showTest() {
+        if (!canPost()) return
+        val notification = NotificationCompat.Builder(context, NotificationChannels.REMINDER)
+            .setSmallIcon(R.drawable.ic_notification)
+            .setContentTitle("Test bildirimi")
+            .setContentText("Bu bildirim saatinizde görünüyorsa hatırlatmalar da görünecektir.")
+            .setCategory(NotificationCompat.CATEGORY_REMINDER)
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setAutoCancel(true)
+            .build()
+        nm.notify(TEST_ID, notification)
     }
 
     private fun openAppIntent(): PendingIntent = PendingIntent.getActivity(
@@ -118,5 +137,6 @@ class PaymentNotifier(private val context: Context) {
         const val EXTRA_PAYMENT_ID = "payment_id"
         fun ongoingId(paymentId: Long) = 100_000 + paymentId.toInt()
         fun reminderId(paymentId: Long) = 200_000 + paymentId.toInt()
+        private const val TEST_ID = 999_999
     }
 }

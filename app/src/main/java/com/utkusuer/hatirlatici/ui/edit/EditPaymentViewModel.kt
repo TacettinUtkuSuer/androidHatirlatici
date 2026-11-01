@@ -11,7 +11,7 @@ import com.utkusuer.hatirlatici.data.local.entity.WeekendRule
 import com.utkusuer.hatirlatici.data.repository.PaymentRepository
 import com.utkusuer.hatirlatici.data.security.CardSecrets
 import com.utkusuer.hatirlatici.data.settings.SettingsRepository
-import com.utkusuer.hatirlatici.ui.components.Banks
+import com.utkusuer.hatirlatici.domain.Banks
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.first

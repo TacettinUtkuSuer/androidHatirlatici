@@ -36,7 +36,7 @@ import com.utkusuer.hatirlatici.data.local.entity.PaymentEntity
 import com.utkusuer.hatirlatici.data.local.entity.PaymentWithReminders
 import com.utkusuer.hatirlatici.data.repository.PaymentRepository
 import com.utkusuer.hatirlatici.ui.components.BankBadge
-import com.utkusuer.hatirlatici.ui.components.Banks
+import com.utkusuer.hatirlatici.domain.Banks
 import com.utkusuer.hatirlatici.ui.components.ContentWidth
 import com.utkusuer.hatirlatici.ui.components.isIncome
 import com.utkusuer.hatirlatici.ui.components.SectionHeader

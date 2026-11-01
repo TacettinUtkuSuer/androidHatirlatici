@@ -16,4 +16,10 @@ interface LogDao {
 
     @Query("DELETE FROM activity_log")
     suspend fun clear()
+
+    @Query("SELECT * FROM activity_log")
+    suspend fun getAll(): List<ActivityLogEntity>
+
+    @Insert
+    suspend fun insertAll(entries: List<ActivityLogEntity>)
 }
