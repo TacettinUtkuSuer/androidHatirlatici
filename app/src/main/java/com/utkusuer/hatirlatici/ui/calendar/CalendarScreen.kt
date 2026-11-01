@@ -49,7 +49,10 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.utkusuer.hatirlatici.domain.Formatters
+import com.utkusuer.hatirlatici.ui.components.BankBadge
+import com.utkusuer.hatirlatici.ui.components.Banks
 import com.utkusuer.hatirlatici.ui.components.ConfirmPaidDialog
+import com.utkusuer.hatirlatici.ui.components.isIncome
 import com.utkusuer.hatirlatici.ui.components.SectionHeader
 import com.utkusuer.hatirlatici.ui.components.amountText
 import com.utkusuer.hatirlatici.ui.components.appContainer
@@ -119,6 +122,7 @@ fun CalendarScreen(widthSizeClass: WindowWidthSizeClass, onOpenPayment: (Long) -
     confirming?.let { entry ->
         ConfirmPaidDialog(
             title = entry.payment.title,
+            isIncome = entry.payment.isIncome,
             onConfirm = { vm.markPaid(entry.cycle.id); confirming = null },
             onDismiss = { confirming = null },
         )
@@ -189,7 +193,7 @@ private fun DayCell(
     val unpaid = entries.filterNot { it.isPaid }
     val dueHere = entries.filter { it.end == day }
     val inRange = unpaid.any { it.start != it.end }
-    val overdue = dueHere.any { !it.isPaid && day.isBefore(LocalDate.now()) }
+    val overdue = dueHere.any { !it.isPaid && !it.payment.isIncome && day.isBefore(LocalDate.now()) }
 
     Column(
         Modifier
@@ -217,7 +221,11 @@ private fun DayCell(
                     overdue -> colors.error
                     else -> colors.secondary
                 }
-                Box(Modifier.size(5.dp).clip(CircleShape).background(dotColor))
+                if (e.payment.isIncome) {
+                    Box(Modifier.size(5.dp).border(1.dp, dotColor, CircleShape))
+                } else {
+                    Box(Modifier.size(5.dp).clip(CircleShape).background(dotColor))
+                }
             }
         }
     }
@@ -233,6 +241,11 @@ private fun Legend() {
     ) {
         LegendItem(colors.secondary, "Son gün")
         LegendItem(colors.outline, "Ödendi")
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Box(Modifier.size(6.dp).border(1.dp, colors.secondary, CircleShape))
+            Spacer(Modifier.width(6.dp))
+            Text("Gelir", style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant)
+        }
         Row(verticalAlignment = Alignment.CenterVertically) {
             Box(Modifier.size(width = 14.dp, height = 10.dp).clip(RoundedCornerShape(3.dp)).background(colors.surfaceVariant))
             Spacer(Modifier.width(6.dp))
@@ -266,19 +279,22 @@ private fun DayDetails(
             Text("Bu güne ait ödeme yok.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
         entries.forEach { e ->
+            val income = e.payment.isIncome
             Row(
                 Modifier.fillMaxWidth().clickable { onOpen(e.payment.id) }.heightIn(min = 56.dp).padding(vertical = 10.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
+                BankBadge(Banks.find(e.payment.bankCode), e.payment.title, size = 32.dp)
+                Spacer(Modifier.width(12.dp))
                 Column(Modifier.weight(1f)) {
                     Text(e.payment.title, style = MaterialTheme.typography.titleMedium)
-                    val (due, overdue) = e.cycle.dueText(today)
+                    val (due, overdue) = e.cycle.dueText(today, income)
                     Text(
-                        if (e.isPaid) "Ödendi" else due,
+                        if (e.isPaid) (if (income) "Geldi" else "Ödendi") else due,
                         style = MaterialTheme.typography.bodySmall,
                         color = when {
                             e.isPaid -> MaterialTheme.colorScheme.onSurfaceVariant
-                            overdue -> MaterialTheme.colorScheme.error
+                            overdue && !income -> MaterialTheme.colorScheme.error
                             else -> MaterialTheme.colorScheme.secondary
                         },
                     )
@@ -287,7 +303,7 @@ private fun DayDetails(
                 when {
                     !e.stored -> Unit // ileriki ay projeksiyonu: henüz işaretlenemez
                     e.isPaid -> TextButton(onClick = { onUnpaid(e) }) { Text("Geri al") }
-                    else -> TextButton(onClick = { onPaid(e) }) { Text("Ödedim") }
+                    else -> TextButton(onClick = { onPaid(e) }) { Text(if (income) "Geldi" else "Ödedim") }
                 }
             }
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)

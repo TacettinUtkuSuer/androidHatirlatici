@@ -9,6 +9,7 @@ import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
 import com.utkusuer.hatirlatici.R
+import com.utkusuer.hatirlatici.data.local.entity.EntryKind
 import com.utkusuer.hatirlatici.data.local.entity.PaymentCycleEntity
 import com.utkusuer.hatirlatici.data.local.entity.PaymentEntity
 import com.utkusuer.hatirlatici.domain.Formatters
@@ -35,7 +36,7 @@ class PaymentNotifier(private val context: Context) {
             .setSilent(true)
             .setShowWhen(false)
             .setContentIntent(openAppIntent())
-            .addAction(0, context.getString(R.string.action_mark_paid), confirmIntent(payment, cycle))
+            .addAction(0, actionLabel(payment), confirmIntent(payment, cycle))
             // Android 14+ "ongoing" bildirimleri kaydırılabilir yaptı; silinirse anında yeniden gösterilir.
             .setDeleteIntent(dismissedIntent(payment.id))
             .build()
@@ -46,13 +47,18 @@ class PaymentNotifier(private val context: Context) {
         if (!canPost()) return
         val notification = NotificationCompat.Builder(context, NotificationChannels.REMINDER)
             .setSmallIcon(R.drawable.ic_notification)
-            .setContentTitle(context.getString(R.string.reminder_title, titleOf(payment)))
+            .setContentTitle(
+                context.getString(
+                    if (payment.kind == EntryKind.INCOME) R.string.income_reminder_title else R.string.reminder_title,
+                    titleOf(payment),
+                ),
+            )
             .setContentText(bodyOf(payment, cycle, today))
             .setCategory(NotificationCompat.CATEGORY_REMINDER)
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setAutoCancel(true)
             .setContentIntent(openAppIntent())
-            .addAction(0, context.getString(R.string.action_mark_paid), confirmIntent(payment, cycle))
+            .addAction(0, actionLabel(payment), confirmIntent(payment, cycle))
             .build()
         nm.notify(reminderId(payment.id), notification)
     }
@@ -68,17 +74,24 @@ class PaymentNotifier(private val context: Context) {
         nm.areNotificationsEnabled() &&
             ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
 
+    private fun actionLabel(p: PaymentEntity) = context.getString(
+        if (p.kind == EntryKind.INCOME) R.string.action_mark_received else R.string.action_mark_paid,
+    )
+
     private fun titleOf(p: PaymentEntity) =
         listOfNotNull(p.title, p.institution?.takeIf { it.isNotBlank() }).joinToString(" · ")
 
     private fun bodyOf(p: PaymentEntity, c: PaymentCycleEntity, today: LocalDate): String {
         val end = LocalDate.ofEpochDay(c.windowEndEpochDay)
         val due = when {
+            today.isAfter(end) && p.kind == EntryKind.INCOME ->
+                context.getString(R.string.income_late_days, (today.toEpochDay() - end.toEpochDay()).toInt())
             today.isAfter(end) -> context.getString(R.string.overdue_days, (today.toEpochDay() - end.toEpochDay()).toInt())
             today == end -> context.getString(R.string.due_today)
             else -> context.getString(R.string.due_on, Formatters.shortDate(end))
         }
-        val amount = p.amountMinor?.let { Formatters.money(it, p.currency) } ?: context.getString(R.string.amount_variable)
+        val amount = p.amountMinor?.let { (if (p.kind == EntryKind.INCOME) "+" else "") + Formatters.money(it, p.currency) }
+            ?: context.getString(R.string.amount_variable)
         return "$due · $amount"
     }
 
@@ -91,7 +104,7 @@ class PaymentNotifier(private val context: Context) {
     /** Bildirim aksiyonu doğrudan onay penceresini açar (Android 12+ trampoline kısıtına uygun). */
     private fun confirmIntent(p: PaymentEntity, c: PaymentCycleEntity): PendingIntent = PendingIntent.getActivity(
         context, c.id.toInt(),
-        ConfirmPaidActivity.intent(context, c.id, p.title),
+        ConfirmPaidActivity.intent(context, c.id, p.title, p.kind == EntryKind.INCOME),
         PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
     )
 

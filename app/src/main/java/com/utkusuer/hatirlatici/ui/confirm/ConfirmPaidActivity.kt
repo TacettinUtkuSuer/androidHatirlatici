@@ -21,6 +21,7 @@ class ConfirmPaidActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         val cycleId = intent.getLongExtra(EXTRA_CYCLE_ID, -1L)
         val title = intent.getStringExtra(EXTRA_TITLE).orEmpty()
+        val isIncome = intent.getBooleanExtra(EXTRA_INCOME, false)
         if (cycleId < 0) {
             finish(); return
         }
@@ -30,6 +31,7 @@ class ConfirmPaidActivity : ComponentActivity() {
             HatirlaticiTheme {
                 ConfirmPaidDialog(
                     title = title,
+                    isIncome = isIncome,
                     onConfirm = {
                         lifecycleScope.launch {
                             engine.markPaid(cycleId)
@@ -45,11 +47,13 @@ class ConfirmPaidActivity : ComponentActivity() {
     companion object {
         private const val EXTRA_CYCLE_ID = "cycle_id"
         private const val EXTRA_TITLE = "title"
+        private const val EXTRA_INCOME = "income"
 
-        fun intent(context: Context, cycleId: Long, title: String): Intent =
+        fun intent(context: Context, cycleId: Long, title: String, isIncome: Boolean): Intent =
             Intent(context, ConfirmPaidActivity::class.java)
                 .putExtra(EXTRA_CYCLE_ID, cycleId)
                 .putExtra(EXTRA_TITLE, title)
+                .putExtra(EXTRA_INCOME, isIncome)
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
     }
 }

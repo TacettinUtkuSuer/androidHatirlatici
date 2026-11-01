@@ -18,11 +18,13 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.utkusuer.hatirlatici.HatirlaticiApp
 import com.utkusuer.hatirlatici.R
+import com.utkusuer.hatirlatici.data.local.entity.EntryKind
 import com.utkusuer.hatirlatici.data.local.entity.PaymentCategory
 import com.utkusuer.hatirlatici.data.local.entity.PaymentCycleEntity
 import com.utkusuer.hatirlatici.data.local.entity.PaymentEntity
 import com.utkusuer.hatirlatici.data.local.entity.Recurrence
 import com.utkusuer.hatirlatici.data.local.entity.ScheduleType
+import com.utkusuer.hatirlatici.data.local.entity.WeekendRule
 import com.utkusuer.hatirlatici.di.AppContainer
 import com.utkusuer.hatirlatici.domain.Formatters
 import java.time.LocalDate
@@ -50,12 +52,16 @@ fun SectionHeader(text: String, modifier: Modifier = Modifier) {
 
 /** "Ödemeyi Yaptım" çift onayı — hem uygulama içinde hem bildirimden kullanılır. */
 @Composable
-fun ConfirmPaidDialog(title: String, onConfirm: () -> Unit, onDismiss: () -> Unit) {
+fun ConfirmPaidDialog(title: String, isIncome: Boolean = false, onConfirm: () -> Unit, onDismiss: () -> Unit) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.confirm_paid_title)) },
-        text = { Text(stringResource(R.string.confirm_paid_body, title)) },
-        confirmButton = { TextButton(onClick = onConfirm) { Text(stringResource(R.string.confirm_yes)) } },
+        title = { Text(stringResource(if (isIncome) R.string.confirm_received_title else R.string.confirm_paid_title)) },
+        text = { Text(stringResource(if (isIncome) R.string.confirm_received_body else R.string.confirm_paid_body, title)) },
+        confirmButton = {
+            TextButton(onClick = onConfirm) {
+                Text(stringResource(if (isIncome) R.string.confirm_received_yes else R.string.confirm_yes))
+            }
+        },
         dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.confirm_no)) } },
     )
 }
@@ -68,16 +74,28 @@ fun PaymentCategory.label(): String = when (this) {
     PaymentCategory.SUBSCRIPTION -> "Abonelik"
     PaymentCategory.RENT -> "Kira"
     PaymentCategory.OTHER -> "Diğer"
+    PaymentCategory.SALARY -> "Maaş"
+    PaymentCategory.RENT_INCOME -> "Kira geliri"
+    PaymentCategory.OTHER_INCOME -> "Diğer gelir"
 }
 
+fun WeekendRule.label(): String = when (this) {
+    WeekendRule.NONE -> "Yok"
+    WeekendRule.BEFORE -> "Öncesi"
+    WeekendRule.AFTER -> "Sonrası"
+    WeekendRule.NEAREST -> "En yakın"
+}
+
+val PaymentEntity.isIncome: Boolean get() = kind == EntryKind.INCOME
+
 fun PaymentEntity.amountText(): String =
-    amountMinor?.let { Formatters.money(it, currency) } ?: "Tutar değişken"
+    amountMinor?.let { (if (isIncome) "+" else "") + Formatters.money(it, currency) } ?: "Tutar değişken"
 
 fun PaymentEntity.scheduleText(): String {
     val base = when (scheduleType) {
         ScheduleType.SINGLE_DAY -> "Ayın ${dayStart}. günü"
         ScheduleType.DATE_RANGE -> "Ayın ${dayStart}–${dayEnd ?: dayStart} arası"
-    }
+    } + if (weekendRule != WeekendRule.NONE) " · hafta sonu: ${weekendRule.label().lowercase(Formatters.TR)}" else ""
     return when (recurrence) {
         Recurrence.MONTHLY -> "Her ay · $base" + (totalInstallments?.let { " · $it taksit" } ?: "")
         Recurrence.ONE_TIME -> "Tek sefer · $base"
@@ -88,13 +106,15 @@ fun PaymentEntity.displayTitle(): String =
     listOfNotNull(title, institution?.takeIf { it.isNotBlank() }).joinToString(" · ")
 
 /** Durum metni ve gecikmiş olup olmadığı. */
-fun PaymentCycleEntity.dueText(today: LocalDate): Pair<String, Boolean> {
+fun PaymentCycleEntity.dueText(today: LocalDate, income: Boolean = false): Pair<String, Boolean> {
     val start = LocalDate.ofEpochDay(windowStartEpochDay)
     val end = LocalDate.ofEpochDay(windowEndEpochDay)
     val left = end.toEpochDay() - today.toEpochDay()
     return when {
+        left < 0 && income -> "${-left} gündür bekleniyor · ${Formatters.shortDate(end)}" to true
         left < 0 -> "${-left} gün gecikti · son gün ${Formatters.shortDate(end)}" to true
-        left == 0L -> "Son gün bugün" to false
+        left == 0L -> (if (income) "Bugün bekleniyor" else "Son gün bugün") to false
+        !today.isBefore(start) && income -> "${Formatters.shortDate(end)} tarihine kadar · $left gün" to false
         !today.isBefore(start) -> "Son gün ${Formatters.shortDate(end)} · $left gün kaldı" to false
         start == end -> "${Formatters.shortDate(end)} · $left gün sonra" to false
         else -> "${Formatters.shortDate(start)} – ${Formatters.shortDate(end)}" to false

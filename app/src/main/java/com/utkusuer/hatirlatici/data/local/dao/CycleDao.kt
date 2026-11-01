@@ -57,6 +57,16 @@ interface CycleDao {
     )
     fun observeOpen(until: Long): Flow<List<CycleWithPayment>>
 
+    /** Widget: [observeOpen] ile aynı sorgu, tek seferlik. */
+    @Transaction
+    @Query(
+        """SELECT c.* FROM payment_cycles c
+           INNER JOIN payments p ON p.id = c.paymentId
+           WHERE p.isActive = 1 AND c.status = 'PENDING' AND c.windowStartEpochDay <= :until
+           ORDER BY c.windowEndEpochDay"""
+    )
+    suspend fun getOpen(until: Long): List<CycleWithPayment>
+
     /** Takvim: verilen gün aralığıyla kesişen tüm dönemler. */
     @Transaction
     @Query(

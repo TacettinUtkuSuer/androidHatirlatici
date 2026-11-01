@@ -40,7 +40,10 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.utkusuer.hatirlatici.data.local.entity.CycleWithPayment
 import com.utkusuer.hatirlatici.domain.Formatters
+import com.utkusuer.hatirlatici.ui.components.BankBadge
+import com.utkusuer.hatirlatici.ui.components.Banks
 import com.utkusuer.hatirlatici.ui.components.ConfirmPaidDialog
+import com.utkusuer.hatirlatici.ui.components.isIncome
 import com.utkusuer.hatirlatici.ui.components.ContentWidth
 import com.utkusuer.hatirlatici.ui.components.SectionHeader
 import com.utkusuer.hatirlatici.ui.components.amountText
@@ -113,6 +116,7 @@ fun DashboardScreen(onAdd: () -> Unit, onOpenPayment: (Long) -> Unit) {
                 section("Gecikmiş", state.overdue, state.today, onOpenPayment) { confirming = it }
                 section("Ödeme zamanı", state.current, state.today, onOpenPayment) { confirming = it }
                 section("Yaklaşan · ${state.upcomingDays} gün", state.upcoming, state.today, onOpenPayment) { confirming = it }
+                section("Beklenen gelirler", state.incomes, state.today, onOpenPayment) { confirming = it }
             }
         }
     }
@@ -120,6 +124,7 @@ fun DashboardScreen(onAdd: () -> Unit, onOpenPayment: (Long) -> Unit) {
     confirming?.let { item ->
         ConfirmPaidDialog(
             title = item.payment.title,
+            isIncome = item.payment.isIncome,
             onConfirm = {
                 vm.markPaid(item.cycle.id)
                 confirming = null
@@ -167,11 +172,14 @@ private fun LazyListScope.section(
 
 @Composable
 private fun PaymentRow(item: CycleWithPayment, today: LocalDate, onClick: () -> Unit, onPaid: () -> Unit) {
-    val (due, overdue) = item.cycle.dueText(today)
+    val income = item.payment.isIncome
+    val (due, overdue) = item.cycle.dueText(today, income)
     Row(
         Modifier.fillMaxWidth().clickable(onClick = onClick).padding(vertical = 14.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
+        BankBadge(Banks.find(item.payment.bankCode), item.payment.title)
+        Spacer(Modifier.width(14.dp))
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
             Text(item.payment.title, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
             Text(
@@ -185,7 +193,7 @@ private fun PaymentRow(item: CycleWithPayment, today: LocalDate, onClick: () -> 
             Text(
                 due,
                 style = MaterialTheme.typography.bodySmall,
-                color = if (overdue) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.secondary,
+                color = if (overdue && !income) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.secondary,
             )
         }
         Spacer(Modifier.width(12.dp))
@@ -196,7 +204,7 @@ private fun PaymentRow(item: CycleWithPayment, today: LocalDate, onClick: () -> 
                 color = if (item.payment.amountMinor == null) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface,
             )
             OutlinedButton(onClick = onPaid, contentPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp)) {
-                Text("Ödedim", style = MaterialTheme.typography.labelLarge)
+                Text(if (income) "Geldi" else "Ödedim", style = MaterialTheme.typography.labelLarge)
             }
         }
     }
