@@ -13,8 +13,8 @@ android {
         applicationId = "com.utkusuer.hatirlatici"
         minSdk = 26
         targetSdk = 35
-        versionCode = 3
-        versionName = "0.3.0"
+        versionCode = 4
+        versionName = "0.4.0"
     }
 
     // Sabit debug imzası: GitHub Actions her derlemede aynı anahtarı kullanır,
@@ -80,6 +80,8 @@ dependencies {
     implementation(libs.androidx.glance.material3)
     implementation(libs.androidx.biometric)
     implementation(libs.androidx.fragment.ktx)
+    implementation(libs.play.services.auth)
 
     testImplementation(libs.junit)
+    testImplementation(libs.org.json) // Android'in org.json'ı JVM testlerinde boş (stub)
 }

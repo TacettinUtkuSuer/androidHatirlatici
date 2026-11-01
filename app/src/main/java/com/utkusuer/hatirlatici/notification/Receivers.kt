@@ -23,16 +23,17 @@ private fun BroadcastReceiver.runAsync(block: suspend () -> Unit) {
 
 private val Context.engine get() = (applicationContext as HatirlaticiApp).container.reminderEngine
 
-/** Saatli hatırlatma alarmı ve gün dönümü tetikleyicisi. */
+/** Ortak hatırlatma alarmı ve gün dönümü tetikleyicisi. */
 class ReminderAlarmReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
-        if (intent.action == ReminderScheduler.ACTION_DAY_TICK) {
-            runAsync { context.engine.refreshAll() }
-            return
+        when (intent.action) {
+            ReminderScheduler.ACTION_DAY_TICK -> runAsync { context.engine.refreshAll() }
+            else -> {
+                // Eski sürümden kalan kayıt başına alarmlar EXTRA_MINUTE taşımaz → yalnızca yenile.
+                val minute = intent.getIntExtra(ReminderScheduler.EXTRA_MINUTE, -1).takeIf { it >= 0 }
+                runAsync { context.engine.onReminderAlarm(minute) }
+            }
         }
-        val paymentId = intent.getLongExtra(PaymentNotifier.EXTRA_PAYMENT_ID, -1L)
-        if (paymentId < 0) return
-        runAsync { context.engine.onReminderAlarm(paymentId) }
     }
 }
 

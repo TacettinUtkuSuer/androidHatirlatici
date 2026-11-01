@@ -75,4 +75,11 @@ interface CycleDao {
            ORDER BY windowStartEpochDay"""
     )
     fun observeInRange(from: Long, to: Long): Flow<List<CycleWithPayment>>
+
+    // --- Yedekleme ---
+    @Query("SELECT * FROM payment_cycles")
+    suspend fun getAll(): List<PaymentCycleEntity>
+
+    @Insert
+    suspend fun insertAll(cycles: List<PaymentCycleEntity>)
 }

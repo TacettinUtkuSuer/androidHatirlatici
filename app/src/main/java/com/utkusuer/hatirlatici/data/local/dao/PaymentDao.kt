@@ -55,4 +55,14 @@ interface PaymentDao {
             insertReminderTimes(minutes.distinct().sorted().map { ReminderTimeEntity(paymentId, it) })
         }
     }
+
+    // --- Yedekleme ---
+    @Query("SELECT * FROM payments")
+    suspend fun getAll(): List<PaymentEntity>
+
+    @Query("SELECT * FROM reminder_times")
+    suspend fun getAllReminderTimes(): List<ReminderTimeEntity>
+
+    @Insert
+    suspend fun insertAll(payments: List<PaymentEntity>)
 }

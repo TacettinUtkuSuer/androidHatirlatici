@@ -68,6 +68,16 @@ object CycleCalculator {
             }
         }
 
+    /**
+     * Hafta sonu kuralı yüzünden son gün kaydırıldıysa asıl (kaydırılmamış) tarihi döndürür, değilse null.
+     */
+    fun originalDueIfShifted(payment: PaymentEntity, cycle: PaymentCycleEntity): LocalDate? {
+        if (payment.weekendRule == WeekendRule.NONE) return null
+        val month = runCatching { YearMonth.parse(cycle.periodKey) }.getOrNull() ?: return null
+        val raw = windowFor(payment.copy(weekendRule = WeekendRule.NONE), month).second
+        return raw.takeIf { it.toEpochDay() != cycle.windowEndEpochDay }
+    }
+
     /** Cumartesi/Pazar'a denk gelen günü kurala göre iş gününe kaydırır. */
     fun adjustForWeekend(date: LocalDate, rule: WeekendRule): LocalDate {
         val dow = date.dayOfWeek

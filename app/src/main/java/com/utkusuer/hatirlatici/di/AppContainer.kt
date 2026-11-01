@@ -1,6 +1,7 @@
 package com.utkusuer.hatirlatici.di
 
 import android.content.Context
+import com.utkusuer.hatirlatici.data.backup.BackupRepository
 import com.utkusuer.hatirlatici.data.local.AppDatabase
 import com.utkusuer.hatirlatici.data.repository.PaymentRepository
 import com.utkusuer.hatirlatici.data.security.PinCipher
@@ -32,6 +33,10 @@ class AppContainer(context: Context) {
             logDao = database.logDao(),
             onChanged = { PaymentsWidget.updateAll(appContext) },
         )
+    }
+
+    val backupRepository by lazy {
+        BackupRepository(database, settingsRepository, pinCipher, reminderSync)
     }
 
     val paymentRepository by lazy {
