@@ -5,13 +5,9 @@ import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.lifecycleScope
 import com.utkusuer.hatirlatici.HatirlaticiApp
-import com.utkusuer.hatirlatici.R
+import com.utkusuer.hatirlatici.ui.components.ConfirmPaidDialog
 import com.utkusuer.hatirlatici.ui.theme.HatirlaticiTheme
 import kotlinx.coroutines.launch
 
@@ -32,21 +28,15 @@ class ConfirmPaidActivity : ComponentActivity() {
 
         setContent {
             HatirlaticiTheme {
-                AlertDialog(
-                    onDismissRequest = { finish() },
-                    title = { Text(stringResource(R.string.confirm_paid_title)) },
-                    text = { Text(stringResource(R.string.confirm_paid_body, title)) },
-                    confirmButton = {
-                        TextButton(onClick = {
-                            lifecycleScope.launch {
-                                engine.markPaid(cycleId)
-                                finish()
-                            }
-                        }) { Text(stringResource(R.string.confirm_yes)) }
+                ConfirmPaidDialog(
+                    title = title,
+                    onConfirm = {
+                        lifecycleScope.launch {
+                            engine.markPaid(cycleId)
+                            finish()
+                        }
                     },
-                    dismissButton = {
-                        TextButton(onClick = { finish() }) { Text(stringResource(R.string.confirm_no)) }
-                    },
+                    onDismiss = { finish() },
                 )
             }
         }
