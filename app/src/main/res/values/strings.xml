@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Hatırlatıcı</string>
+
+    <string name="channel_ongoing_name">Bekleyen ödemeler</string>
+    <string name="channel_ongoing_desc">Ödemesi gelen kayıtlar için kalıcı bildirim</string>
+    <string name="channel_reminder_name">Ödeme hatırlatmaları</string>
+    <string name="channel_reminder_desc">Gün içinde belirlenen saatlerde gönderilen uyarılar</string>
+
+    <string name="action_mark_paid">Ödemeyi Yaptım</string>
+    <string name="confirm_paid_title">Ödemeyi onaylıyor musunuz?</string>
+    <string name="confirm_paid_body">\"%1$s\" için bu dönemin ödemesi yapıldı olarak işaretlenecek ve bildirimler kapanacak.</string>
+    <string name="confirm_yes">Evet, ödedim</string>
+    <string name="confirm_no">Vazgeç</string>
+
+    <string name="amount_variable">Tutar değişken</string>
+    <string name="due_today">Son gün bugün</string>
+    <string name="due_on">Son ödeme: %1$s</string>
+    <string name="overdue_days">%1$d gün gecikti</string>
+    <string name="reminder_title">Ödeme hatırlatması: %1$s</string>
+</resources>
