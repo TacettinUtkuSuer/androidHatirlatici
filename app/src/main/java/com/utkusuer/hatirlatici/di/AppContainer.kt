@@ -7,6 +7,7 @@ import com.utkusuer.hatirlatici.data.security.PinCipher
 import com.utkusuer.hatirlatici.data.settings.SettingsRepository
 import com.utkusuer.hatirlatici.notification.PaymentNotifier
 import com.utkusuer.hatirlatici.notification.ReminderScheduler
+import com.utkusuer.hatirlatici.widget.PaymentsWidget
 import com.utkusuer.hatirlatici.work.ReminderEngine
 import com.utkusuer.hatirlatici.work.ReminderSync
 
@@ -22,10 +23,18 @@ class AppContainer(context: Context) {
     val reminderSync by lazy { ReminderSync(appContext) }
 
     val reminderEngine by lazy {
-        ReminderEngine(database.paymentDao(), database.cycleDao(), settingsRepository, notifier, scheduler)
+        ReminderEngine(
+            paymentDao = database.paymentDao(),
+            cycleDao = database.cycleDao(),
+            settingsRepository = settingsRepository,
+            notifier = notifier,
+            scheduler = scheduler,
+            logDao = database.logDao(),
+            onChanged = { PaymentsWidget.updateAll(appContext) },
+        )
     }
 
     val paymentRepository by lazy {
-        PaymentRepository(database.paymentDao(), database.cycleDao(), pinCipher, reminderSync)
+        PaymentRepository(database.paymentDao(), database.cycleDao(), database.logDao(), pinCipher, reminderSync)
     }
 }

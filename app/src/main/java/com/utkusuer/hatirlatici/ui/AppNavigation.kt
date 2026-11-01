@@ -9,6 +9,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
@@ -33,15 +34,19 @@ import androidx.navigation.navArgument
 import com.utkusuer.hatirlatici.ui.calendar.CalendarScreen
 import com.utkusuer.hatirlatici.ui.dashboard.DashboardScreen
 import com.utkusuer.hatirlatici.ui.edit.EditPaymentScreen
+import com.utkusuer.hatirlatici.ui.log.LogScreen
 import com.utkusuer.hatirlatici.ui.payments.PaymentsScreen
+import com.utkusuer.hatirlatici.ui.settings.SettingsScreen
 
 private enum class TopLevel(val route: String, val label: String, val icon: ImageVector) {
     DASHBOARD("dashboard", "Özet", Icons.Filled.Home),
     CALENDAR("calendar", "Takvim", Icons.Filled.DateRange),
     PAYMENTS("payments", "Kayıtlar", Icons.AutoMirrored.Filled.List),
+    SETTINGS("settings", "Ayarlar", Icons.Filled.Settings),
 }
 
 private const val EDIT_ROUTE = "edit?id={id}"
+private const val LOG_ROUTE = "log"
 private fun editRoute(id: Long = 0L) = "edit?id=$id"
 
 /**
@@ -108,6 +113,12 @@ fun HatirlaticiAppUi(widthSizeClass: WindowWidthSizeClass) {
                         onAdd = { nav.navigate(editRoute()) },
                         onOpenPayment = { nav.navigate(editRoute(it)) },
                     )
+                }
+                composable(TopLevel.SETTINGS.route) {
+                    SettingsScreen(onOpenLog = { nav.navigate(LOG_ROUTE) })
+                }
+                composable(LOG_ROUTE) {
+                    LogScreen(onBack = { nav.popBackStack() })
                 }
                 composable(
                     EDIT_ROUTE,

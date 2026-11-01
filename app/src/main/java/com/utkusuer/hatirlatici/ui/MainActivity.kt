@@ -3,7 +3,7 @@ package com.utkusuer.hatirlatici.ui
 import android.Manifest
 import android.os.Build
 import android.os.Bundle
-import androidx.activity.ComponentActivity
+import androidx.fragment.app.FragmentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -20,7 +20,7 @@ import androidx.compose.ui.platform.LocalContext
 import com.utkusuer.hatirlatici.HatirlaticiApp
 import com.utkusuer.hatirlatici.ui.theme.HatirlaticiTheme
 
-class MainActivity : ComponentActivity() {
+class MainActivity : FragmentActivity() {
     @OptIn(ExperimentalMaterial3WindowSizeClassApi::class)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)

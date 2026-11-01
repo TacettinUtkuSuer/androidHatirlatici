@@ -18,4 +18,11 @@
     <string name="due_on">Son ödeme: %1$s</string>
     <string name="overdue_days">%1$d gün gecikti</string>
     <string name="reminder_title">Ödeme hatırlatması: %1$s</string>
+    <string name="action_mark_received">Para Geldi</string>
+    <string name="income_reminder_title">Gelir bekleniyor: %1$s</string>
+    <string name="income_late_days">%1$d gündür bekleniyor</string>
+    <string name="confirm_received_title">Para geldi mi?</string>
+    <string name="confirm_received_body">\"%1$s\" için bu dönemin parası geldi olarak işaretlenecek ve bildirimler kapanacak.</string>
+    <string name="confirm_received_yes">Evet, geldi</string>
+    <string name="widget_description">Bu ayki ve yaklaşan ödemeleri gösteren sade liste</string>
 </resources>

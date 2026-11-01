@@ -25,6 +25,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
@@ -34,7 +35,10 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.utkusuer.hatirlatici.data.local.entity.PaymentEntity
 import com.utkusuer.hatirlatici.data.local.entity.PaymentWithReminders
 import com.utkusuer.hatirlatici.data.repository.PaymentRepository
+import com.utkusuer.hatirlatici.ui.components.BankBadge
+import com.utkusuer.hatirlatici.ui.components.Banks
 import com.utkusuer.hatirlatici.ui.components.ContentWidth
+import com.utkusuer.hatirlatici.ui.components.isIncome
 import com.utkusuer.hatirlatici.ui.components.SectionHeader
 import com.utkusuer.hatirlatici.ui.components.amountText
 import com.utkusuer.hatirlatici.ui.components.appContainer
@@ -72,7 +76,8 @@ fun PaymentsScreen(onAdd: () -> Unit, onOpenPayment: (Long) -> Unit) {
         },
     ) { padding ->
         val list = payments ?: return@Scaffold
-        val (active, passive) = list.map { it.payment }.partition { it.isActive }
+        val (activeAll, passive) = list.map { it.payment }.partition { it.isActive }
+        val (incomes, active) = activeAll.partition { it.isIncome }
         ContentWidth {
             LazyColumn(
                 contentPadding = PaddingValues(
@@ -84,15 +89,19 @@ fun PaymentsScreen(onAdd: () -> Unit, onOpenPayment: (Long) -> Unit) {
                 if (list.isEmpty()) {
                     item {
                         Text(
-                            "Henüz kayıt yok. Sağ alttaki + ile kredi kartı, fatura veya kredi ekleyin.",
+                            "Henüz kayıt yok. Sağ alttaki + ile kredi kartı, fatura, kredi veya maaş gibi bir gelir ekleyin.",
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.padding(top = 24.dp),
                         )
                     }
                 }
-                if (active.isNotEmpty()) item { SectionHeader("Aktif · ${active.size}") }
+                if (active.isNotEmpty()) item { SectionHeader("Ödemeler · ${active.size}") }
                 items(active, key = { it.id }) { p ->
+                    PaymentListRow(p, onClick = { onOpenPayment(p.id) }, onToggle = { vm.setActive(p.id, it) })
+                }
+                if (incomes.isNotEmpty()) item { SectionHeader("Gelirler · ${incomes.size}") }
+                items(incomes, key = { it.id }) { p ->
                     PaymentListRow(p, onClick = { onOpenPayment(p.id) }, onToggle = { vm.setActive(p.id, it) })
                 }
                 if (passive.isNotEmpty()) item { SectionHeader("Pasif · bildirim yok") }
@@ -111,6 +120,8 @@ private fun PaymentListRow(p: PaymentEntity, onClick: () -> Unit, onToggle: (Boo
         Modifier.fillMaxWidth().clickable(onClick = onClick).padding(vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
+        BankBadge(Banks.find(p.bankCode), p.title, Modifier.alpha(dim))
+        Spacer(Modifier.width(14.dp))
         Column(Modifier.weight(1f)) {
             Text(
                 listOfNotNull(p.title, p.cardLast4?.let { "•••• $it" }).joinToString("  "),

@@ -4,6 +4,8 @@ import com.utkusuer.hatirlatici.data.local.entity.PaymentCycleEntity
 import com.utkusuer.hatirlatici.data.local.entity.PaymentEntity
 import com.utkusuer.hatirlatici.data.local.entity.Recurrence
 import com.utkusuer.hatirlatici.data.local.entity.ScheduleType
+import com.utkusuer.hatirlatici.data.local.entity.WeekendRule
+import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.YearMonth
 import java.time.temporal.ChronoUnit
@@ -49,18 +51,34 @@ object CycleCalculator {
         )
     }
 
-    /** (başlangıç, bitiş) — tek günlük ödemelerde ikisi aynıdır. */
+    /**
+     * (başlangıç, bitiş) — tek günlük ödemelerde ikisi aynıdır.
+     * Hafta sonu kuralı son güne uygulanır; aralıkta başlangıç son günü geçemez.
+     */
     fun windowFor(payment: PaymentEntity, month: YearMonth): Pair<LocalDate, LocalDate> =
         when (payment.scheduleType) {
-            ScheduleType.SINGLE_DAY -> month.clampDay(payment.dayStart).let { it to it }
+            ScheduleType.SINGLE_DAY -> adjustForWeekend(month.clampDay(payment.dayStart), payment.weekendRule).let { it to it }
             ScheduleType.DATE_RANGE -> {
                 val startDay = payment.dayStart
                 val endDay = payment.dayEnd ?: payment.dayStart
                 val start = month.clampDay(startDay)
-                val end = if (endDay >= startDay) month.clampDay(endDay) else month.plusMonths(1).clampDay(endDay)
-                start to end
+                val rawEnd = if (endDay >= startDay) month.clampDay(endDay) else month.plusMonths(1).clampDay(endDay)
+                val end = adjustForWeekend(rawEnd, payment.weekendRule)
+                minOf(start, end) to end
             }
         }
+
+    /** Cumartesi/Pazar'a denk gelen günü kurala göre iş gününe kaydırır. */
+    fun adjustForWeekend(date: LocalDate, rule: WeekendRule): LocalDate {
+        val dow = date.dayOfWeek
+        if (dow != DayOfWeek.SATURDAY && dow != DayOfWeek.SUNDAY) return date
+        return when (rule) {
+            WeekendRule.NONE -> date
+            WeekendRule.BEFORE -> date.minusDays(if (dow == DayOfWeek.SATURDAY) 1 else 2)
+            WeekendRule.AFTER -> date.plusDays(if (dow == DayOfWeek.SATURDAY) 2 else 1)
+            WeekendRule.NEAREST -> if (dow == DayOfWeek.SATURDAY) date.minusDays(1) else date.plusDays(1)
+        }
+    }
 
     /** Penceresi başlangıç tarihinden sonra biten ilk ay. */
     fun firstCycleMonth(payment: PaymentEntity): YearMonth {

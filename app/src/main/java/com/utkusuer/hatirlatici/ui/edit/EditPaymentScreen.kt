@@ -22,6 +22,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -50,17 +51,21 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.utkusuer.hatirlatici.data.local.entity.EntryKind
 import com.utkusuer.hatirlatici.data.local.entity.PaymentCategory
 import com.utkusuer.hatirlatici.data.local.entity.Recurrence
 import com.utkusuer.hatirlatici.data.local.entity.ScheduleType
+import com.utkusuer.hatirlatici.data.local.entity.WeekendRule
 import com.utkusuer.hatirlatici.domain.Formatters
 import com.utkusuer.hatirlatici.ui.components.SectionHeader
 import com.utkusuer.hatirlatici.ui.components.appContainer
+import com.utkusuer.hatirlatici.ui.components.authenticate
 import com.utkusuer.hatirlatici.ui.components.label
 
 @Composable
@@ -72,13 +77,23 @@ fun EditPaymentScreen(paymentId: Long, onDone: () -> Unit) {
     val state by vm.state.collectAsStateWithLifecycle()
     var confirmDelete by remember { mutableStateOf(false) }
     var showTimePicker by remember { mutableStateOf(false) }
+    var showBankPicker by remember { mutableStateOf(false) }
+    val context = LocalContext.current
 
     LaunchedEffect(state.finished) { if (state.finished) onDone() }
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(if (state.isNew) "Yeni kayıt" else "Kaydı düzenle") },
+                title = {
+                    Text(
+                        when {
+                            state.isNew && state.form.kind == EntryKind.INCOME -> "Yeni gelir"
+                            state.isNew -> "Yeni ödeme"
+                            else -> "Kaydı düzenle"
+                        },
+                    )
+                },
                 navigationIcon = {
                     IconButton(onClick = onDone) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Geri") }
                 },
@@ -91,6 +106,7 @@ fun EditPaymentScreen(paymentId: Long, onDone: () -> Unit) {
         if (state.loading) return@Scaffold
         val f = state.form
         val e = state.errors
+        val income = f.kind == EntryKind.INCOME
         Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.TopCenter) {
             Column(
                 Modifier.widthIn(max = 640.dp).fillMaxWidth()
@@ -100,12 +116,19 @@ fun EditPaymentScreen(paymentId: Long, onDone: () -> Unit) {
                     .padding(bottom = 32.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
+                Segmented(
+                    options = listOf(EntryKind.EXPENSE to "Ödeme", EntryKind.INCOME to "Gelir"),
+                    selected = f.kind,
+                    onSelect = vm::setKind,
+                )
+
                 // --- Genel ---
                 SectionHeader("Genel")
                 Field("Ad *", f.title, e["title"]) { v -> vm.update { it.copy(title = v) } }
-                Field("Kurum / banka", f.institution, null) { v -> vm.update { it.copy(institution = v) } }
+                BankPickerRow(bankCode = f.bankCode, title = f.title, onClick = { showBankPicker = true })
+                Field("Kurum / açıklama", f.institution, null) { v -> vm.update { it.copy(institution = v) } }
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    PaymentCategory.entries.forEach { c ->
+                    PaymentCategory.entries.filter { it.kind == f.kind }.forEach { c ->
                         FilterChip(
                             selected = f.category == c,
                             onClick = { vm.update { it.copy(category = c) } },
@@ -117,28 +140,48 @@ fun EditPaymentScreen(paymentId: Long, onDone: () -> Unit) {
                 // --- Zamanlama ---
                 SectionHeader("Zamanlama")
                 Segmented(
-                    options = listOf(ScheduleType.SINGLE_DAY to "Tek gün", ScheduleType.DATE_RANGE to "Tarih aralığı"),
+                    options = listOf(
+                        ScheduleType.SINGLE_DAY to "Tek gün",
+                        ScheduleType.DATE_RANGE to if (income) "Gün aralığı" else "Tarih aralığı",
+                    ),
                     selected = f.scheduleType,
                 ) { v -> vm.update { it.copy(scheduleType = v) } }
 
                 if (f.scheduleType == ScheduleType.SINGLE_DAY) {
-                    NumberField("Son ödeme günü (ayın kaçı) *", f.dayStart, e["dayStart"]) { v -> vm.update { it.copy(dayStart = v) } }
+                    NumberField(if (income) "Para geliş günü (ayın kaçı) *" else "Son ödeme günü (ayın kaçı) *", f.dayStart, e["dayStart"]) { v -> vm.update { it.copy(dayStart = v) } }
                     NumberField("Kaç gün önceden hatırlatmaya başlansın", f.leadDays, e["leadDays"]) { v -> vm.update { it.copy(leadDays = v) } }
                 } else {
                     Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                         NumberField("Başlangıç günü *", f.dayStart, e["dayStart"], Modifier.weight(1f)) { v -> vm.update { it.copy(dayStart = v) } }
                         NumberField("Son gün *", f.dayEnd, e["dayEnd"], Modifier.weight(1f)) { v -> vm.update { it.copy(dayEnd = v) } }
                     }
-                    Hint("Son gün başlangıçtan küçükse sonraki aya taşar (ör. 25 → 10).")
+                    Hint(
+                        if (income) "Ör. maaş ayın 1–5'i arasında herhangi bir gün yatıyorsa 1 ve 5 girin."
+                        else "Son gün başlangıçtan küçükse sonraki aya taşar (ör. 25 → 10).",
+                    )
                     NumberField("İlk kaç gün hatırlatma yapılmasın", f.delayDays, e["delayDays"]) { v -> vm.update { it.copy(delayDays = v) } }
-                    Hint("Ör. 1–15 aralığında 10 girerseniz bildirimler ayın 11'inde başlar.")
+                    if (!income) Hint("Ör. 1–15 aralığında 10 girerseniz bildirimler ayın 11'inde başlar.")
                 }
+
+                Text("Son gün hafta sonuna denk gelirse", style = MaterialTheme.typography.bodyMedium)
+                Segmented(
+                    options = WeekendRule.entries.map { it to it.label() },
+                    selected = f.weekendRule,
+                ) { v -> vm.update { it.copy(weekendRule = v) } }
+                Hint(
+                    when (f.weekendRule) {
+                        WeekendRule.NONE -> "Tarih olduğu gibi kalır."
+                        WeekendRule.BEFORE -> "Önceki Cuma gününe alınır."
+                        WeekendRule.AFTER -> "Sonraki Pazartesi gününe alınır."
+                        WeekendRule.NEAREST -> "Cumartesi → Cuma, Pazar → Pazartesi."
+                    },
+                )
 
                 Segmented(
                     options = listOf(Recurrence.MONTHLY to "Her ay", Recurrence.ONE_TIME to "Tek seferlik"),
                     selected = f.recurrence,
                 ) { v -> vm.update { it.copy(recurrence = v) } }
-                if (f.recurrence == Recurrence.MONTHLY) {
+                if (f.recurrence == Recurrence.MONTHLY && !income) {
                     NumberField("Toplam taksit sayısı (opsiyonel)", f.installments, e["installments"]) { v -> vm.update { it.copy(installments = v) } }
                 }
 
@@ -159,7 +202,11 @@ fun EditPaymentScreen(paymentId: Long, onDone: () -> Unit) {
                 // --- Bildirimler ---
                 SectionHeader("Bildirimler")
                 SwitchRow("Aktif", "Pasif kayıtlar hiçbir bildirim üretmez", f.isActive) { v -> vm.update { it.copy(isActive = v) } }
-                SwitchRow("Kalıcı bildirim", "Ödeme yapılana kadar bildirim çubuğunda kalır", f.persistent) { v -> vm.update { it.copy(persistent = v) } }
+                SwitchRow(
+                    "Kalıcı bildirim",
+                    if (income) "Para gelene kadar bildirim çubuğunda kalır" else "Ödeme yapılana kadar bildirim çubuğunda kalır",
+                    f.persistent,
+                ) { v -> vm.update { it.copy(persistent = v) } }
                 SwitchRow(
                     "Varsayılan hatırlatma saatleri",
                     state.defaultTimes.joinToString(", ") { Formatters.minuteOfDay(it) }.ifEmpty { "Tanımlı değil" },
@@ -184,31 +231,28 @@ fun EditPaymentScreen(paymentId: Long, onDone: () -> Unit) {
                     if (f.customTimes.isEmpty()) Hint("Saat eklenmezse yalnızca kalıcı bildirim gösterilir.")
                 }
 
-                // --- Kart bilgisi ---
-                SectionHeader("Kart bilgisi")
-                NumberField("Kartın son 4 hanesi", f.cardLast4, e["cardLast4"], maxLength = 4) { v ->
-                    vm.update { it.copy(cardLast4 = v) }
-                }
-                if (f.hasStoredPin && !f.removePin) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(
-                            "PIN şifreli olarak kayıtlı",
-                            style = MaterialTheme.typography.bodyMedium,
-                            modifier = Modifier.weight(1f),
-                        )
-                        TextButton(onClick = { vm.update { it.copy(removePin = true, newPin = "") } }) { Text("Sil") }
+                // --- Kart / hesap bilgileri ---
+                SectionHeader(if (income) "Hesap bilgileri" else "Kart ve hesap bilgileri")
+                if (!income) {
+                    NumberField("Kartın son 4 hanesi (listede görünür)", f.cardLast4, e["cardLast4"], maxLength = 4) { v ->
+                        vm.update { it.copy(cardLast4 = v) }
                     }
                 }
-                OutlinedTextField(
-                    value = f.newPin,
-                    onValueChange = { v -> vm.update { it.copy(newPin = v.filter(Char::isDigit).take(12)) } },
-                    label = { Text(if (f.hasStoredPin) "Yeni PIN (değiştirmek için)" else "PIN (opsiyonel)") },
-                    visualTransformation = PasswordVisualTransformation(),
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth(),
-                )
-                Hint("PIN, Android Keystore ile cihaza bağlı bir anahtarla şifrelenir. Saklamak kendi sorumluluğunuzdadır.")
+                if (f.secretsLocked) {
+                    OutlinedButton(
+                        onClick = {
+                            authenticate(context, "Bilgileri göster", onSuccess = vm::unlockSecrets)
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Icon(Icons.Filled.Lock, null, Modifier.padding(end = 8.dp))
+                        Text("Kayıtlı bilgileri göster / düzenle")
+                    }
+                    Hint("Bilgiler şifreli saklanıyor. Görmek için parmak izi veya ekran kilidi gerekir.")
+                } else {
+                    SecretFields(f.secrets, income, e, vm::updateSecrets)
+                    Hint("Bu bilgiler Android Keystore ile cihaza bağlı bir anahtarla şifrelenir. Saklamak kendi sorumluluğunuzdadır.")
+                }
 
                 // --- Not ---
                 SectionHeader("Not")
@@ -243,6 +287,14 @@ fun EditPaymentScreen(paymentId: Long, onDone: () -> Unit) {
                 }) { Text("Ekle") }
             },
             dismissButton = { TextButton(onClick = { showTimePicker = false }) { Text("Vazgeç") } },
+        )
+    }
+
+    if (showBankPicker) {
+        BankPickerDialog(
+            selected = state.form.bankCode,
+            onSelect = { vm.selectBank(it); showBankPicker = false },
+            onDismiss = { showBankPicker = false },
         )
     }
 

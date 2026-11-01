@@ -1,12 +1,18 @@
 package com.utkusuer.hatirlatici.work
 
 import com.utkusuer.hatirlatici.data.local.dao.CycleDao
+import com.utkusuer.hatirlatici.data.local.dao.LogDao
 import com.utkusuer.hatirlatici.data.local.dao.PaymentDao
+import com.utkusuer.hatirlatici.data.local.entity.ActivityLogEntity
+import com.utkusuer.hatirlatici.data.local.entity.CycleStatus
+import com.utkusuer.hatirlatici.data.local.entity.EntryKind
+import com.utkusuer.hatirlatici.data.local.entity.LogType
 import com.utkusuer.hatirlatici.data.local.entity.PaymentEntity
 import com.utkusuer.hatirlatici.data.local.entity.PaymentWithReminders
 import com.utkusuer.hatirlatici.data.settings.AppSettings
 import com.utkusuer.hatirlatici.data.settings.SettingsRepository
 import com.utkusuer.hatirlatici.domain.CycleCalculator
+import com.utkusuer.hatirlatici.domain.Formatters
 import com.utkusuer.hatirlatici.notification.PaymentNotifier
 import com.utkusuer.hatirlatici.notification.ReminderScheduler
 import kotlinx.coroutines.sync.Mutex
@@ -30,14 +36,20 @@ class ReminderEngine(
     private val settingsRepository: SettingsRepository,
     private val notifier: PaymentNotifier,
     private val scheduler: ReminderScheduler,
+    private val logDao: LogDao,
+    /** Veri değiştiğinde (widget güncellemesi vb.). */
+    private val onChanged: suspend () -> Unit = {},
     private val zone: () -> ZoneId = { ZoneId.systemDefault() },
 ) {
     private val mutex = Mutex()
 
-    suspend fun refreshAll() = mutex.withLock {
-        val settings = settingsRepository.current()
-        paymentDao.getAllWithReminders().forEach { refreshLocked(it, settings) }
-        scheduler.scheduleDayTick(nextDayTick())
+    suspend fun refreshAll() {
+        mutex.withLock {
+            val settings = settingsRepository.current()
+            paymentDao.getAllWithReminders().forEach { refreshLocked(it, settings) }
+            scheduler.scheduleDayTick(nextDayTick())
+        }
+        onChanged()
     }
 
     suspend fun refreshPayment(paymentId: Long) = mutex.withLock {
@@ -66,12 +78,28 @@ class ReminderEngine(
         refreshLocked(pw, settings)
     }
 
-    /** Çift onaydan sonra çağrılır: dönemi kapatır, bildirimleri kaldırır. */
-    suspend fun markPaid(cycleId: Long, amountMinor: Long? = null) = mutex.withLock {
-        val cycle = cycleDao.getById(cycleId) ?: return@withLock
-        cycleDao.markPaid(cycleId, System.currentTimeMillis(), amountMinor)
-        notifier.cancelAll(cycle.paymentId)
-        paymentDao.getWithReminders(cycle.paymentId)?.let { refreshLocked(it, settingsRepository.current()) }
+    /** Çift onaydan sonra çağrılır: dönemi kapatır, loglar, bildirimleri kaldırır. */
+    suspend fun markPaid(cycleId: Long, amountMinor: Long? = null) {
+        mutex.withLock {
+            val cycle = cycleDao.getById(cycleId) ?: return@withLock
+            if (cycle.status == CycleStatus.PAID) return@withLock
+            cycleDao.markPaid(cycleId, System.currentTimeMillis(), amountMinor)
+            notifier.cancelAll(cycle.paymentId)
+            val pw = paymentDao.getWithReminders(cycle.paymentId) ?: return@withLock
+            val p = pw.payment
+            val period = YearMonth.parse(cycle.periodKey)
+            logDao.insert(
+                ActivityLogEntity(
+                    type = if (p.kind == EntryKind.INCOME) LogType.RECEIVED else LogType.PAID,
+                    paymentId = p.id,
+                    title = p.title,
+                    detail = "${Formatters.monthYear(period)} dönemi · son gün ${Formatters.shortDate(LocalDate.ofEpochDay(cycle.windowEndEpochDay))}",
+                    amountMinor = amountMinor ?: p.amountMinor,
+                ),
+            )
+            refreshLocked(pw, settingsRepository.current())
+        }
+        onChanged()
     }
 
     private suspend fun refreshLocked(pw: PaymentWithReminders, settings: AppSettings) {

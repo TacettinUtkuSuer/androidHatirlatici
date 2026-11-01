@@ -48,6 +48,8 @@ app/src/main/java/com/utkusuer/hatirlatici/
 | `reminder_times` | Ödemeye özel gün içi saatler | `(paymentId, minuteOfDay)` |
 | `payment_cycles` | Her ayın dönemi + ödendi durumu | `periodKey` "yyyy-MM" (unique), `windowStart/End`, `notifyFrom`, `status` (PENDING/PAID/SKIPPED), `paidAt` |
 
+**v2 eklemeleri** (Migration 1→2): `payments.kind` (EXPENSE/INCOME), `weekendRule` (NONE/BEFORE/AFTER/NEAREST), `bankCode`, `encryptedSecrets` (kart no, SKT, CVV, PIN, internet şifresi, hesap no/IBAN — tek şifreli JSON) ve `activity_log` tablosu (ödeme hareketleri ve kayıt işlemleri ayrı türlerle).
+
 Dönem ayrı tablo olduğu için: geçmiş aylar takvimde görünür, ödenmeyen eski dönemler "gecikti" olarak bildirim üretmeye devam eder, düzenlemede yalnızca PENDING dönemler yeniden hesaplanır.
 
 ## 3. Bildirim sistemi
@@ -84,5 +86,5 @@ Kararlar:
 |---|---|
 | 1 ✅ | Gradle, Room şeması, Keystore, DataStore, bildirim motoru, onay diyaloğu, CycleCalculator testleri |
 | **2 ✅** | Dashboard, Takvim, Ekleme/Düzenleme formu, navigasyon (WindowSizeClass ile telefon/tablet/katlanabilir) |
-| 3 | Ayarlar ekranı, Glance widget'ı, biyometrik PIN görüntüleme, izin/pil yönlendirmeleri |
+| **3 ✅** | Ayarlar ekranı, Glance widget'ı, biyometrik doğrulamayla kart bilgileri, izin/pil yönlendirmeleri, gelir kayıtları, hafta sonu kuralı, banka rozetleri, işlem geçmişi (log), yeni ikon |
 | 4 | JSON yedek: yerel (SAF) import/export + Google Sign-In (Credential Manager + AuthorizationClient, `drive.appdata` kapsamı) ile Drive yedekle/geri yükle |

@@ -15,6 +15,10 @@ data class PaymentEntity(
     val title: String,
     val institution: String? = null,
     val category: PaymentCategory = PaymentCategory.OTHER,
+    /** Gider mi gelir mi. (v2) */
+    val kind: EntryKind = EntryKind.EXPENSE,
+    /** [com.utkusuer.hatirlatici.ui.components.Banks] listesindeki banka kodu. (v2) */
+    val bankCode: String? = null,
 
     // --- Zamanlama ---
     val scheduleType: ScheduleType,
@@ -27,6 +31,8 @@ data class PaymentEntity(
     val reminderDelayDays: Int = 0,
     /** SINGLE_DAY: vadeden X gün önce hatırlatmaya başla. */
     val leadDays: Int = 0,
+    /** Son gün hafta sonuna denk gelirse kaydırma kuralı. (v2) */
+    val weekendRule: WeekendRule = WeekendRule.NONE,
     /** İlk dönemin hesaplanacağı tarih. */
     val startDateEpochDay: Long,
     /** Bu tarihten sonra dönem üretilmez (opsiyonel). */
@@ -50,6 +56,8 @@ data class PaymentEntity(
     val cardLast4: String? = null,
     /** Android Keystore (AES-256/GCM) ile şifrelenmiş PIN; asla düz metin değil. */
     val encryptedPin: String? = null,
+    /** Keystore ile şifrelenmiş JSON: kart no, SKT, CVV, internet şifresi, hesap no/IBAN. (v2) */
+    val encryptedSecrets: String? = null,
 
     val note: String? = null,
     val createdAt: Long = System.currentTimeMillis(),
